@@ -1,0 +1,39 @@
+# Week 01 Reflection
+
+1. Include a link to one of your Pull Requests (PRs) at GitHub. (It should be merged and closed at this point.)
+
+GitHub Pull Request Link:  https://github.com/Javier-BYU/cse341-books/pull/6
+
+2. Include a link to one of your Issues at GitHub. (It should be closed at this point.)
+
+GitHub Issue Link: https://github.com/Javier-BYU/cse341-books/issues/2
+
+3. Which issue took more or less time than expected? Why?
+
+Setting up the server and database connection took more time than I expected. My local port was already blocked by another process, so I used Copilot to find the issue. I also had trouble connecting to MongoDB Atlas until I updated the IP access to 0.0.0.0/0 and changed the connection link to the full URI format.
+On the positive side, understanding the API test specifications took less time than I thought. Once the database connected, using the .rest files made testing each route very easy and fast.
+4. Include a link to your walk-though video. (It must include your name, show your web service working at Render, explain the way your `Get Single Book` controller works, and discuss status codes.):
+
+Video link: https://www.youtube.com/watch?v=xFtFn1q-oEg
+
+5.a. Include a GitHub link to a file that shows how your app uses sensitive data, such as the MongoDB connection string.
+
+GitHub link:  https://github.com/Javier-BYU/cse341-books/blob/main/src/db/connect.js
+
+
+5.b. How did you store sensitive data? Why is that approach important?
+Answer: I saved my sensitive data in a .env file on my computer and in the Render Environment Variables. I added the .env file to my .gitignore so it never goes to GitHub. This is very important because if my database link or password goes to GitHub, anyone can see it and ruin my database.
+
+6.a. Include a GitHub link to a file that shows one other implementation decision you made.
+
+GitHub link: https://github.com/Javier-BYU/cse341-books/blob/main/src/controllers/books.js
+
+
+6.b. What decision does this file show, and why did you make that choice?
+
+Answer:  This file shows how I organized the controller functions for the API. I chose to use the MVC structure because keeping the controllers separate from the routes makes the code clean, easy to read, and simple to fix if something fails.
+
+7. What is one specific habit or process you will work on for next week?
+
+Answer: Next week, I will work on focusing on only one GitHub issue per study session. Trying to fix too many issues at once causes too much stress and frustration, which makes me finish late. Taking it one step at a time will help me understand the code better and finish on time.
+
