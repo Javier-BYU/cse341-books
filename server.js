@@ -1,5 +1,6 @@
 import app from './app.js';
 import { connectToDb } from './src/db/connect.js';
+import { initializeDatabase } from './src/db/initialize.js';
 
 const PORT = process.env.PORT;
 
@@ -11,6 +12,7 @@ const startServer = async () => {
   try {
 
     await connectToDb();
+    await initializeDatabase();
 
     app.listen(PORT, () => {
       console.log(`Server listening on port ${PORT}`);

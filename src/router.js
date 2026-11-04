@@ -1,7 +1,101 @@
 import express from 'express';
 import { getBookByIdHandler, getBooksHandler } from './controllers/books.js';
+import {
+  getAllAuthors,
+  getAuthorById,
+  createAuthor,
+  updateAuthor,
+  deleteAuthor,
+} from './controllers/authors.js';
 
 const router = express.Router();
+
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     Author:
+ *       type: object
+ *       required: [id, name, birthYear]
+ *       properties:
+ *         id:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           maxLength: 20
+ *           example: a1
+ *         name:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 100
+ *           example: Jane Austen
+ *         birthYear:
+ *           type: integer
+ *           minimum: 1
+ *           description: Must not be later than the current year.
+ *           example: 1775
+ *     AuthorInput:
+ *       type: object
+ *       additionalProperties: false
+ *       required: [id, name, birthYear]
+ *       properties:
+ *         id:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           maxLength: 20
+ *           example: a4
+ *         name:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 100
+ *           example: Mary Shelley
+ *         birthYear:
+ *           type: integer
+ *           minimum: 1
+ *           description: Must not be later than the current year.
+ *           example: 1797
+ *     AuthorUpdate:
+ *       type: object
+ *       additionalProperties: false
+ *       required: [name, birthYear]
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: Optional; if provided, it must equal the id in the URL.
+ *           example: a1
+ *         name:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 100
+ *           example: Jane Austen
+ *         birthYear:
+ *           type: integer
+ *           minimum: 1
+ *           description: Must not be later than the current year.
+ *           example: 1775
+ *     Error:
+ *       type: object
+ *       required: [error]
+ *       properties:
+ *         error:
+ *           type: string
+ *           example: Author not found
+ *     ValidationError:
+ *       type: object
+ *       required: [error, details]
+ *       properties:
+ *         error:
+ *           type: string
+ *           example: Validation failed
+ *         details:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: [name is required]
+ */
+
+// ==========================================
+// RUTAS DE LIBROS (Books)
+// ==========================================
 
 /**
  * @openapi
@@ -41,5 +135,275 @@ router.get('/books', getBooksHandler);
  *         description: Unable to retrieve book
  */
 router.get('/books/:id', getBookByIdHandler);
+
+
+// ==========================================
+// RUTAS DE AUTORES (Authors)
+// ==========================================
+
+/**
+ * @openapi
+ * /authors:
+ *   get:
+ *     summary: List authors
+ *     description: Return authors sorted by id in ascending order, with pagination.
+ *     tags: [Authors]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         description: Maximum number of authors to return (default 50).
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         example: 50
+ *       - in: query
+ *         name: skip
+ *         description: Number of authors to skip (default 0).
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           default: 0
+ *         example: 0
+ *     responses:
+ *       200:
+ *         description: Authors returned successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Author'
+ *             examples:
+ *               authors:
+ *                 value:
+ *                   - { id: a1, name: Jane Austen, birthYear: 1775 }
+ *                   - { id: a2, name: Mark Twain, birthYear: 1835 }
+ *       400:
+ *         description: Invalid pagination parameters.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *             examples:
+ *               invalidLimit:
+ *                 value: { error: Validation failed, details: [limit must be an integer] }
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               internal:
+ *                 value: { error: Internal server error }
+ *   post:
+ *     summary: Create an author
+ *     description: Create an author with a unique, immutable custom id.
+ *     tags: [Authors]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AuthorInput'
+ *           example:
+ *             id: a4
+ *             name: Mary Shelley
+ *             birthYear: 1797
+ *     responses:
+ *       201:
+ *         description: Author created successfully. The Location header identifies the new resource.
+ *         headers:
+ *           Location:
+ *             schema:
+ *               type: string
+ *             example: /authors/a4
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Author'
+ *             example:
+ *               id: a4
+ *               name: Mary Shelley
+ *               birthYear: 1797
+ *       400:
+ *         description: Missing, invalid, out-of-range, or unknown field.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *             example:
+ *               error: Validation failed
+ *               details: [name is required]
+ *       409:
+ *         description: An author with this id already exists.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: An author with this id already exists
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Internal server error
+ */
+router.get('/authors', getAllAuthors);
+router.post('/authors', createAuthor);
+
+/**
+ * @openapi
+ * /authors/{id}:
+ *   get:
+ *     summary: Get an author
+ *     description: Return one author by its custom id.
+ *     tags: [Authors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Custom author id.
+ *         schema:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           maxLength: 20
+ *         example: a1
+ *     responses:
+ *       200:
+ *         description: Author returned successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Author'
+ *             example:
+ *               id: a1
+ *               name: Jane Austen
+ *               birthYear: 1775
+ *       404:
+ *         description: No author exists with this id.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Author not found
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Internal server error
+ *   put:
+ *     summary: Replace an author
+ *     description: Replace all editable fields. If id is supplied, it must equal the URL id.
+ *     tags: [Authors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Custom author id.
+ *         schema:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           maxLength: 20
+ *         example: a1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AuthorUpdate'
+ *           example:
+ *             name: Jane Austen
+ *             birthYear: 1775
+ *     responses:
+ *       200:
+ *         description: Author replaced successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Author'
+ *             example:
+ *               id: a1
+ *               name: Jane Austen
+ *               birthYear: 1775
+ *       400:
+ *         description: Missing, invalid, out-of-range, or unknown field, or body id differs from URL id.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *             example:
+ *               error: Validation failed
+ *               details: [id must match the URL id]
+ *       404:
+ *         description: No author exists with this id.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Author not found
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Internal server error
+ *   delete:
+ *     summary: Delete an author
+ *     description: Delete only when no books reference the author; books are never cascade-deleted.
+ *     tags: [Authors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Custom author id.
+ *         schema:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           maxLength: 20
+ *         example: a4
+ *     responses:
+ *       204:
+ *         description: Author deleted successfully. No response body.
+ *       404:
+ *         description: No author exists with this id.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Author not found
+ *       409:
+ *         description: One or more books still reference this author.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Author cannot be deleted because one or more books reference it
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: Internal server error
+ */
+router.get('/authors/:id', getAuthorById);
+router.put('/authors/:id', updateAuthor);
+router.delete('/authors/:id', deleteAuthor);
 
 export default router;
