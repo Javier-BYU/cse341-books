@@ -1,5 +1,11 @@
 import express from 'express';
-import { getBookByIdHandler, getBooksHandler } from './controllers/books.js';
+import {
+  createBook,
+  deleteBook,
+  getBookByIdHandler,
+  getBooksHandler,
+  updateBook,
+} from './controllers/books.js';
 import {
   getAllAuthors,
   getAuthorById,
@@ -91,6 +97,71 @@ const router = express.Router();
  *           items:
  *             type: string
  *           example: [name is required]
+ *     Book:
+ *       type: object
+ *       required: [id, authorId, title, publicationDate]
+ *       properties:
+ *         id:
+ *           type: string
+ *           pattern: '^b[0-9]+$'
+ *           maxLength: 20
+ *           example: b1
+ *         authorId:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           maxLength: 20
+ *           example: a1
+ *         title:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 200
+ *           example: Pride and Prejudice
+ *         publicationDate:
+ *           type: string
+ *           format: date
+ *           example: 1813-01-28
+ *     BookInput:
+ *       type: object
+ *       additionalProperties: false
+ *       required: [id, authorId, title, publicationDate]
+ *       properties:
+ *         id:
+ *           type: string
+ *           pattern: '^b[0-9]+$'
+ *           maxLength: 20
+ *           example: b4
+ *         authorId:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           maxLength: 20
+ *           example: a1
+ *         title:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 200
+ *           example: Emma
+ *         publicationDate:
+ *           type: string
+ *           format: date
+ *           example: 1815-12-23
+ *     BookUpdate:
+ *       type: object
+ *       additionalProperties: false
+ *       required: [authorId, title, publicationDate]
+ *       properties:
+ *         authorId:
+ *           type: string
+ *           pattern: '^a[0-9]+$'
+ *           example: a2
+ *         title:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 200
+ *           example: Updated Book Title
+ *         publicationDate:
+ *           type: string
+ *           format: date
+ *           example: 2026-02-20
  */
 
 // ==========================================
@@ -101,40 +172,189 @@ const router = express.Router();
  * @openapi
  * /books:
  *   get:
- *     summary: Get all books
- *     tags:
- *       - Books
+ *     summary: List books
+ *     description: Return books sorted by id, optionally filtered and paginated.
+ *     tags: [Books]
+ *     parameters:
+ *       - in: query
+ *         name: authorId
+ *         schema: { type: string, pattern: '^a[0-9]+$', maxLength: 20 }
+ *         example: a1
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+ *         example: 50
+ *       - in: query
+ *         name: skip
+ *         schema: { type: integer, minimum: 0, default: 0 }
+ *         example: 0
  *     responses:
  *       200:
- *         description: Books returned successfully
+ *         description: Books returned successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Book' }
+ *             example:
+ *               - { id: b1, authorId: a1, title: Pride and Prejudice, publicationDate: 1813-01-28 }
+ *       400:
+ *         description: Invalid query parameter.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ValidationError' }
+ *             example: { error: Validation failed, details: [limit must be an integer] }
  *       500:
- *         description: Unable to retrieve books
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Internal server error }
+ *   post:
+ *     summary: Create a book
+ *     description: Create a book referencing an existing author.
+ *     tags: [Books]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/BookInput' }
+ *           example: { id: b4, authorId: a1, title: Emma, publicationDate: 1815-12-23 }
+ *     responses:
+ *       201:
+ *         description: Book created successfully.
+ *         headers:
+ *           Location: { schema: { type: string }, example: /books/b4 }
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Book' }
+ *       400:
+ *         description: Invalid input or author does not exist.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ValidationError' }
+ *             example: { error: Validation failed, details: [title is required] }
+ *       409:
+ *         description: A book with this id already exists.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: A book with this id already exists }
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Internal server error }
  */
 router.get('/books', getBooksHandler);
+router.post('/books', createBook);
 
 /**
  * @openapi
  * /books/{id}:
  *   get:
- *     summary: Get one book by id
- *     tags:
- *       - Books
+ *     summary: Get a book
+ *     description: Return one book by its custom id.
+ *     tags: [Books]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         description: The custom book id, such as b1
- *         schema:
- *           type: string
+ *         schema: { type: string, pattern: '^b[0-9]+$', maxLength: 20 }
  *     responses:
  *       200:
- *         description: Book returned successfully
+ *         description: Book returned successfully.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Book' }
  *       404:
- *         description: Book not found
+ *         description: No book exists with this id.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Book not found }
  *       500:
- *         description: Unable to retrieve book
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Internal server error }
  */
 router.get('/books/:id', getBookByIdHandler);
+
+/**
+ * @openapi
+ * /books/{id}:
+ *   put:
+ *     summary: Replace a book
+ *     description: Replace all editable fields of an existing book.
+ *     tags: [Books]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, pattern: '^b[0-9]+$', maxLength: 20 }
+ *         example: b1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/BookUpdate' }
+ *           example: { authorId: a2, title: Updated Book Title, publicationDate: 2026-02-20 }
+ *     responses:
+ *       200:
+ *         description: Book replaced successfully.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Book' }
+ *       400:
+ *         description: Invalid input or author does not exist.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ValidationError' }
+ *             example: { error: Validation failed, details: [title is required] }
+ *       404:
+ *         description: No book exists with this id.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Book not found }
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Internal server error }
+ *   delete:
+ *     summary: Delete a book
+ *     description: Delete one book without affecting its author.
+ *     tags: [Books]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, pattern: '^b[0-9]+$', maxLength: 20 }
+ *         example: b4
+ *     responses:
+ *       204:
+ *         description: Book deleted successfully. No response body.
+ *       404:
+ *         description: No book exists with this id.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Book not found }
+ *       500:
+ *         description: Unexpected server or database error.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: Internal server error }
+ */
+router.put('/books/:id', updateBook);
+router.delete('/books/:id', deleteBook);
 
 
 // ==========================================
